@@ -1,49 +1,66 @@
-
-# Set some aliases.
+# Aliases
 @{
-    gh    = 'Get-Help'
-    gsc   = 'Get-Secret'
-    gsi   = 'Get-SecretInfo'
-    mc    = 'Measure-Command'
-    popl  = 'Pop-Location'
-    pul   = 'Push-Location'
-    rvdns = 'Resolve-DnsName'
-    ttc   = 'Test-TCPConnection'
-    nsm   = 'New-MySmbMapping'
-    gsm   = 'Get-SmbMapping'
-    rsm   = 'Remove-SmbMapping'
-} | ForEach-Object {
-    foreach ($key in $_.Keys) {
-        Set-Alias -Name $key -Value $_[$key]
-    }
+    # Built-in/System Commands
+    gh     = 'Get-Help'
+    mc     = 'Measure-Command'
+    popl   = 'Pop-Location'
+    pul    = 'Push-Location'
+    rvdns  = 'Resolve-DnsName'
+    # Installed Module Commands
+    gs     = 'Get-Secret'
+    gsi    = 'Get-SecretInfo'
+    ib     = 'Invoke-Build'
+    # Installed Scripts
+    nsmbm  = 'New-SmbMapping.ps1'
+    scc    = 'Set-ClipboardCredential.ps1'
+    sapsac = 'Start-ProcessAsCredential.ps1'
+    # 'Start-As' = 'Start-ProcessAsCredential.ps1'
+    # Personal Scripts
+    fdou   = 'Find-OcadUser.ps1'
+    gdl    = 'Get-Download.ps1'
+    gss    = 'Get-Screenshot.ps1'
+    gwf    = 'Get-WorkFolder.ps1'
+    nwf    = 'New-WorkFolder.ps1'
+    iec    = 'Invoke-EmacsClient.ps1'
+    ivsc   = 'Invoke-VisualStudioCode.ps1'
+    ttc    = 'Test-TCPConnection.ps1'
+}.GetEnumerator() | ForEach-Object {
+    Set-Alias -Name $_.Key -Value $_.Value
 }
 
-# Convenient default parameters.
-$PSDefaultParameterValues = @{
-    'Get-Help:Online'                                        = $true
-    'Get-Secret:Name'                                        = 'sys'
-    'New-PSSession:Credential'                               = { Get-Secret }
-    'New-MySmbMapping:Credential'                            = { Get-Secret }
-    'Connect-SharedResource:Credential'                      = { Get-Secret }
-    'Get-LapsCredential.ps1:Credential'                      = { Get-Secret }
-    'Invoke-As.ps1:Credential'                               = { Get-Secret }
-    'Start-As.ps1:Credential'                                = { Get-Secret }
-    'Test-PendingReboot:SkipConfigurationManagerClientCheck' = $true
+# Default Parameter Configuration
+# https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_parameters_default_values
+@{
+    # Toggle $PSDefaultParameterValues
+    Disabled                                  = $false
+    # Built-in/System Commands
+    'New-PSSession:Credential'                = { Get-Secret }
+    # Installed Module Commands
+    # 'Test-PendingReboot:SkipConfigurationManagerClientCheck' = $true
+    'Get-Secret:Name'                         = 'sys'
+    'Get-SecretInfo:Vault'                    = 'SecretStore'
+    # Installed Scripts
+    'Get-LapsCredential.ps1:Credential'       = { Get-Secret }
+    'New-SmbMapping.ps1:Credential'           = { Get-Secret }
+    'Set-ClipboardCredential.ps1:Password'    = $true
+    'Set-ClipboardCredential.ps1:AsPlainText' = $true
+    'Set-ClipboardCredential.ps1:Timeout'     = { New-TimeSpan -Seconds 10 }
+    # Personal Scripts
+}.GetEnumerator() | ForEach-Object {
+    $PSDefaultParameterValues[$_.Key] = $_.Value
 }
 
 # If running new/core PowerShell on Windows, add the Windows PowerShell
 # CurrentUser module path location to the PSModulePath.
-if ($PSVersionTable.PSEdition -eq 'Core' -and
-    $PSVersionTable.OS -like '*Windows*'
-) {
+if ($IsWindows) {
     & {
         $modulePathArray = [System.Collections.ArrayList] $env:PSModulePath.Split(';')
-        $currUserWinPSPath = (
-            '{0}\WindowsPowerShell\Modules' -f [System.Environment]::GetFolderPath('MyDocuments')
-        )
-        
-        if ($currUserWinPSPath -notin $modulePathArray) {
-            $modulePathArray.Insert(1, $currUserWinPSPath) | Out-Null
+        $userWinModulePath = [System.Environment]::GetFolderPath('MyDocuments') |
+            Join-Path -ChildPath 'WindowsPowerShell' |
+            Join-Path -ChildPath 'Modules'
+
+        if ($userWinModulePath -notin $modulePathArray) {
+            $modulePathArray.Insert(1, $userWinModulePath) | Out-Null
             $env:PSModulePath = $modulePathArray -join ';'
         }
     }
@@ -51,18 +68,16 @@ if ($PSVersionTable.PSEdition -eq 'Core' -and
 
 # If running either PowerShell version on Windows, add locations to the
 # environment path and PSModulePath.
-if ($PSVersionTable.PSEdition -eq 'Desktop' -or
-    $PSVersionTable.OS -like '*Windows*'
-) {
+if ($IsWindows -or $PSVersionTable.PSVersion.Major -le 5) {
     & {
-        # Add MyPowerShell Scripts location to the environment path.
-        $myScriptPath = '{0}\MyPowerShell\Scripts' -f [System.Environment]::GetFolderPath('MyDocuments')
-        $envPathArray = [System.Collections.ArrayList] $env:Path.Split(';')
+        # # Add MyPowerShell Scripts location to the environment path.
+        # $myScriptPath = '{0}\MyPowerShell\Scripts' -f [System.Environment]::GetFolderPath('MyDocuments')
+        # $envPathArray = [System.Collections.ArrayList] $env:Path.Split(';')
 
-        if ($myScriptPath -notin $envPathArray) {
-            $envPathArray.Insert(0, $myScriptPath) | Out-Null
-            $env:Path = $envPathArray -join ';'
-        }
+        # if ($myScriptPath -notin $envPathArray) {
+        #     $envPathArray.Insert(0, $myScriptPath) | Out-Null
+        #     $env:Path = $envPathArray -join ';'
+        # }
 
         # Add MyPowerShell Modules location to the module path.
         $myPSModulePath = '{0}\MyPowerShell\Modules' -f [System.Environment]::GetFolderPath('MyDocuments') 
@@ -75,127 +90,20 @@ if ($PSVersionTable.PSEdition -eq 'Desktop' -or
     }
 }
 
-function prompt {
-    # Define the variables to prevent scope conflicts.
-    $local:psVerNoANSI = [string] ''
-    $local:psVer = [string] ''
-    $local:historyIdNoANSI = [string] ''
-    $local:historyId = [string] ''
-    $local:user = [string] ''
-    $local:path = [string] ''
-    $local:git = [string] ''
-    $local:gitNoAnsi = [string] ''
-    $local:prompt = [string] ''
-
-    # Inclue the major PSVersion in the prompt.
-    $psVerNoANSI = "PS$($PSVersionTable.PSVersion.Major) "
-
-    # Include the history ID of the current command if OutputHistory is loaded.
-    if (Get-Module OutputHistory) {
-        $historyIdNoANSI = " $($MyInvocation.HistoryId.ToString().PadLeft(2,'0')) "
-    }
-
-    # Stylize the PSVersion and history ID part of the prompt if the host is ANSI capable.
-    if ($Host.UI.SupportsVirtualTerminal) {
-        $esc = $([char]27)
-        $psVer = "$esc[3m$esc[38;5;8m$psVerNoANSI$esc[0m"
-        $historyId = "$esc[38;5;8m$historyIdNoANSI$esc[0m"
-    }
-    else {
-        $psVer = $psVerNoANSI
-        $historyId = $historyIdNoANSI
-    }
-
-    # Include the username in the prompt if the session is in an Admin context.
-    $local:isAdmin = [Security.Principal.WindowsPrincipal]::new(
-        [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-        [Security.Principal.WindowsBuiltinRole]::Administrator)
-    if ($isAdmin) { $user = "$env:USERNAME@" }
-
-    # Use ProviderPath if there's no drive defined for the location provider.
-    if ($executionContext.SessionState.Path.CurrentLocation.Drive) {
-        $path = $executionContext.SessionState.Path.CurrentLocation.Path
-    }
-    else {
-        $path = $executionContext.SessionState.Path.CurrentLocation.ProviderPath
-    }
-
-    # Only provide Git info if the host supports ANSI colors...
-    if ($Host.UI.SupportsVirtualTerminal -and 
-        # ...the posh-git moduled is loaded...
-        (Get-Module 'posh-git') -and 
-        # ...and we're in a repository.
-        ($git = "$(Write-GitStatus (Get-GitStatus))".Trim(' '))
-    ) {
-        $git = ':' + $git
-        $gitNoANSI = $git -replace '\x1b\[[0-9;]*m', ''
-    }
-
-    $prompt = "$('>' * ($nestedPromptLevel + 1)) "
-
-    # Define a function to measure the prompt length.
-    function promptLength {
-        $psVerNoANSI.Length + 
-        $historyIdNoANSI.Length + 
-        $user.Length + 
-        $path.Length + 
-        $gitNoANSI.Length + 
-        $prompt.Length
-    }
-
-    # Set the maximum prompt length as a fraction of the console width.
-    $maxLength = [uint16]($Host.UI.RawUI.BufferSize.Width * 0.5) # Use 'BufferSize' to support ISE.
-    # ...or try to reserve a given amount of space.
-    # $maxLength = $Host.UI.RawUI.BufferSize.Width - 80 # Use 'BufferSize' to support ISE.
-
-    if ((promptLength) -gt $maxLength) {
-        # Collapse the $Home path to '~'.
-        if ($path -like "$Home*") { $path = $path.Replace($Home, '~') }
-
-        # Use the system path delimiter.
-        $dsc = [System.IO.Path]::DirectorySeparatorChar
-
-        # Isolate the first element of the path which may contain DSC characters (as in a UNC path).
-        $matchInfo = $path | Select-String -Pattern "(.*?[^\$($dsc)]+)\$($dsc)(.*)"
-        [string[]] $split = $matchInfo.Matches.Groups[1]
-        # Populate the rest of the array with the remaining path elements.
-        $split += $matchInfo.Matches.Groups[2] -split "\$($dsc)" | Where-Object { $_ -match '\S+' }
-
-        # Collapse parts of the path (staring with the 2nd) until the prompt is
-        # short enough, or the penultimate array element has been collapsed.
-        while ((promptLength) -gt $maxLength -and (++$i -lt ($split.Length - 1))) {
-            $split[$i] = '..'
-            $path = $split -join $dsc
-        }
-    }
-
-    $psVer,
-    $historyId,
-    $user,
-    $path,
-    $git,
-    $prompt -join ''
-
-    # The default prompt function definition:
-    #  "PS $($executionContext.SessionState.Path.CurrentLocation)$('>' * ($nestedPromptLevel + 1)) ";
-    # .Link
-    # https://go.microsoft.com/fwlink/?LinkID=225750
-    # .ExternalHelp System.Management.Automation.dll-help.xml
-}
-
 # PSReadline Configuration
-if (Get-Module -Name PSReadLine) {
-    switch ((Get-Module PSReadLine).Version) {
-        { $_ -ge 2.2 -and $PSVersionTable.PSVersion -gt '7.2' } {
-            Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-        }
-        { $_ -ge 2.1 -and $_ -lt 2.2 -and $PSVersionTable.PSVersion -lt '7.2' } {
-            Set-PSReadLineOption -PredictionSource History
-        }
+if ($PSReadline = Get-Module -Name PSReadLine) {
+    switch ($PSReadLine.Version) {
+        #     { $_ -ge 2.2 -and $PSVersionTable.PSVersion -gt '7.2' } {
+        #         Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+        #     }
+        #     { $_ -ge 2.1 -and $_ -lt 2.2 -and $PSVersionTable.PSVersion -lt '7.2' } {
+        #         Set-PSReadLineOption -PredictionSource History
+        #     }
         { $_ -ge 2.1 } {
             Set-PSReadLineOption -Colors @{ InlinePrediction = "$([char]27)[90;7;3m" }
         }
     }
+
     # Set-PSReadLineKeyHandler -Key Tab -Function Complete # Redundant in Emacs EditMode
     Set-PSReadLineOption -EditMode Emacs
     Set-PSReadLineKeyHandler -Key @('UpArrow', 'Ctrl+p') -Function HistorySearchBackward
@@ -205,102 +113,88 @@ if (Get-Module -Name PSReadLine) {
     Set-PSReadLineKeyHandler -Key 'Ctrl+/' -Function Undo
     Set-PSReadLineKeyHandler -Key 'Ctrl+?' -Function Redo
 
-    function selectRegion {
-        $string = $point = $mark = $null
-        [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$string, [ref]$point)
-        [Microsoft.PowerShell.PSConsoleReadLine]::ExchangePointAndMark()
-        [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$string, [ref]$mark)
-                
-        switch ($point - $mark) {
-            { $_ -gt 0 } {
-                for ($i = 0; $i -lt $_; $i++ ) {
-                    [Microsoft.PowerShell.PSConsoleReadLine]::SelectForwardChar()
-                }
-            }
-            { $_ -lt 0 } {
-                for ($i = 0; $i -gt $_; $i-- ) {
-                    [Microsoft.PowerShell.PSConsoleReadLine]::SelectBackwardChar()
-                }
-            }
-            default {
-                throw 'No region to select.'
-            }
+    # Custom KeyHandlers to make the terminal behave more like Emacs, where the
+    # latest addition to the kill ring is copied to the clipboard.
+
+    @{
+        Chord            = 'Ctrl+k'
+        BriefDescription = 'CopyKillLine'
+        Description      = 'Copy to clipboard when calling KillLine'
+        ScriptBlock      = {
+            param($key, $arg)
+
+            $bufferString = [string] $null
+            $point = [int32] $null
+            [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$bufferString, [ref]$point)
+
+            $bufferString.Substring($point) | Set-Clipboard
+
+            [Microsoft.PowerShell.PSConsoleReadLine]::KillLine()
         }
-    }
+    } | ForEach-Object { Set-PSReadLineKeyHandler @_ }
 
-    function cancelSelection {
-        $string = $cursor = $null 
-        [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$string, [ref]$cursor)
-        
-        $start = $length = $null
-        [Microsoft.PowerShell.PSConsoleReadLine]::GetSelectionState([ref]$start, [ref]$length)
+    @{
+        Chord            = 'Ctrl+w'
+        BriefDescription = 'CutRegion'
+        Description      = 'Cut region to clipboard and kill ring'
+        ScriptBlock      = {
+            param($key, $arg)
 
-        switch ($cursor - $start) {
-            { $_ -gt 0 } {
-                for ($i = 0; $i -lt $length; $i++) {
-                    [Microsoft.PowerShell.PSConsoleReadLine]::SelectBackwardChar()
-                }
+            $bufferString = [string] $null
+            $point = $mark = [int32] $null
+            [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$bufferString, [ref]$point)
+            [Microsoft.PowerShell.PSConsoleReadLine]::ExchangePointAndMark()
+            [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$bufferString, [ref]$mark)
+            [Microsoft.PowerShell.PSConsoleReadLine]::ExchangePointAndMark()
+
+            if ($point -gt $mark) {
+                $bufferString.Substring($mark, $point - $mark) | Set-Clipboard
             }
-            { $_ -le 0 } {
-                for ($i = 0; $i -lt $length; $i++ ) {
-                    [Microsoft.PowerShell.PSConsoleReadLine]::SelectForwardChar()
-                }
+            elseif ($mark -gt $point) {
+                $bufferString.Substring($point, $mark - $point) | Set-Clipboard
             }
-        }
-        [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($cursor)
-    }
 
-    Set-PSReadLineKeyHandler -Key 'Ctrl+w' -ScriptBlock {
-        param($key, $arg)
-
-        try {
-            selectRegion
-            [Microsoft.PowerShell.PSConsoleReadLine]::Copy()
             [Microsoft.PowerShell.PSConsoleReadLine]::KillRegion()
-            cancelSelection
-            [Microsoft.PowerShell.PSConsoleReadLine]::SetMark()
         }
-        catch {}
-    } 
+    } | ForEach-Object { Set-PSReadLineKeyHandler @_ }
 
-    Set-PSReadLineKeyHandler -Key 'Alt+w' -ScriptBlock {
-        param($key, $arg)
+    @{
+        Chord            = 'Alt+w'
+        BriefDescription = 'CopyRegion'
+        Description      = 'Copy region to clipboard and kill ring'
+        ScriptBlock      = {
+            param($key, $arg)
 
-        try {
-            $string = $cursorA = $cursorB = $null 
-            [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$string, [ref]$cursorA)
-            selectRegion
-            [Microsoft.PowerShell.PSConsoleReadLine]::Copy()
+            $bufferString = [string] $null
+            $point = $mark = [int32] $null
+            [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$bufferString, [ref]$point)
+            [Microsoft.PowerShell.PSConsoleReadLine]::ExchangePointAndMark()
+            [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$bufferString, [ref]$mark)
+            [Microsoft.PowerShell.PSConsoleReadLine]::ExchangePointAndMark()
+
+            if ($mark -lt $point) {
+                $bufferString.Substring($mark, $point - $mark) | Set-Clipboard
+            }
+            elseif ($point -lt $mark) {
+                $bufferString.Substring($point, $mark - $point) | Set-Clipboard
+            }
+
             [Microsoft.PowerShell.PSConsoleReadLine]::KillRegion()
-            [Microsoft.PowerShell.PSConsoleReadLine]::SetMark()
             [Microsoft.PowerShell.PSConsoleReadLine]::Yank()
-            cancelSelection
-            [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$string, [ref]$cursorB)
-            if ($cursorB -ne $cursorA) {
+            if ($point -lt $mark) { 
                 [Microsoft.PowerShell.PSConsoleReadLine]::ExchangePointAndMark()
             }
         }
-        catch {}
-    }
+    } | ForEach-Object { Set-PSReadLineKeyHandler @_ }
 
-    Set-PSReadLineKeyHandler -Key 'Ctrl+k' -ScriptBlock {
-        param($key, $arg)
-
-        try {
-            [Microsoft.PowerShell.PSConsoleReadLine]::SetMark()
-            [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition([int32]::MaxValue)
-            selectRegion
-            [Microsoft.PowerShell.PSConsoleReadLine]::Copy()
-            [Microsoft.PowerShell.PSConsoleReadLine]::KillRegion()
-        }
-        catch {}
-    }
-
+    # Selections from the Sample PSReadLine Profile
+    # https://github.com/PowerShell/PSReadLine/blob/master/PSReadLine/SamplePSReadLineProfile.ps1
+    
     # This example will replace any aliases on the command line with the resolved commands.
     @{
-        Chord            = "Alt+%"
+        Chord            = 'Alt+%'
         BriefDescription = 'ExpandAliases'
-        Description      = "Replace all aliases with the full command"
+        Description      = 'Replace all aliases with the full command'
         ScriptBlock      = {
             param($key, $arg)
 
@@ -338,7 +232,7 @@ if (Get-Module -Name PSReadLine) {
     @{
         Chord            = 'Ctrl+F1'
         BriefDescription = 'CommandHelp'
-        Description      = "Open the help window for the current command"
+        Description      = 'Open the help window for the current command'
         ScriptBlock      = {
             param($key, $arg)
 
@@ -370,4 +264,85 @@ if (Get-Module -Name PSReadLine) {
             }
         }
     } | ForEach-Object { Set-PSReadLineKeyHandler @_ }
+}
+
+function prompt {
+    # Define variables locally to prevent scope conflicts.
+    # Use an ordered hashtable to define the parts of the prompt.
+    $local:prompt = [ordered] @{
+        psVer = "PS$($PSVersionTable.PSVersion.Major) "
+    }
+
+    # Stylize the PSVersion part of the prompt if the host is ANSI capable.
+    if ($Host.UI.SupportsVirtualTerminal) {
+        $local:esc = $([char]27)
+        $prompt.psVer = "$esc[3m$esc[38;5;8m{0}$esc[0m" -f $prompt.psVer
+    }
+
+    # Use ProviderPath if there's no drive defined for the location provider.
+    $prompt.path = if ($executionContext.SessionState.Path.CurrentLocation.Drive) {
+        $executionContext.SessionState.Path.CurrentLocation.Path
+    }
+    else {
+        $executionContext.SessionState.Path.CurrentLocation.ProviderPath
+    }
+
+    # Only provide Git info if the host supports ANSI colors...
+    if ($Host.UI.SupportsVirtualTerminal -and 
+        # ...the posh-git moduled is loaded...
+        (Get-Module 'posh-git') -and 
+        # ...and we're in a repository.
+        ($prompt.git = "$(Write-GitStatus (Get-GitStatus))".Trim(' '))
+    ) {
+        $prompt.git = ':' + $prompt.git
+    }
+
+    # As per the default, indicate when the prompt is nested.
+    $prompt.prompt = "$('>' * ($nestedPromptLevel + 1)) "
+
+    # Define a function to measure the prompt length excluding ANSI control characters.
+    function promptLength {
+        return [regex]::Replace(
+            ($prompt.Values -join ''),
+            '\x1B\[[0-9;]+m',
+            ''
+        ).Length
+    }
+
+    # Set the maximum prompt length as a fraction of the console width.
+    $local:maxLength = [uint16]($Host.UI.RawUI.BufferSize.Width * 0.5) # Use 'BufferSize' to support ISE.
+    # ...or try to reserve a given amount of space.
+    # $maxLength = $Host.UI.RawUI.BufferSize.Width - 80 # Use 'BufferSize' to support ISE.
+
+    if ((promptLength) -gt $maxLength) {
+        # Collapse the $HOME path to '~'.
+        if ($prompt.path -like "$HOME*") { $prompt.path = $prompt.path.Replace($HOME, '~') }
+
+        # Use the system path delimiter.
+        $local:dsc = [System.IO.Path]::DirectorySeparatorChar
+
+        # Isolate the first element of the path which may begin with DSC characters (as in a UNC path).
+        $local:segments = [regex]::Match(
+            $prompt.path,
+            "(?<first>\$($dsc){0,2}[^\$($dsc)]*)\$($dsc)?(?<rest>.*)"
+        ) | ForEach-Object { 
+            $_.Groups['first'].Value
+            $_.Groups['rest'].Value.Split($dsc)
+        }
+        
+        # Collapse parts of the path (staring with the 2nd) until the prompt is
+        # short enough, or the penultimate array element has been collapsed.
+        while ((promptLength) -gt $maxLength -and (++$local:i -lt ($segments.Length - 1))) {
+            $segments[$i] = '..'
+            $prompt.path = $segments -join $dsc
+        }
+    }
+
+    return $prompt.Values -join ''
+
+    # The default prompt function definition:
+    # "PS $($executionContext.SessionState.Path.CurrentLocation)$('>' * ($nestedPromptLevel + 1)) ";
+    # .Link
+    # https://go.microsoft.com/fwlink/?LinkID=225750
+    # .ExternalHelp System.Management.Automation.dll-help.xml
 }
