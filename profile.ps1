@@ -36,7 +36,7 @@
     # Built-in/System Commands
     'New-PSSession:Credential'                = { Get-Secret }
     # Installed Module Commands
-    # 'Test-PendingReboot:SkipConfigurationManagerClientCheck' = $true
+    'Test-PendingReboot:SkipConfigurationMan' = $true
     'Get-Secret:Name'                         = 'sys'
     'Get-SecretInfo:Vault'                    = 'SecretStore'
     # Installed Scripts
